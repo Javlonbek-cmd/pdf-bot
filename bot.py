@@ -1,9 +1,7 @@
 import telebot
 from telebot import types
-from docx2pdf import convert
 from pdf2docx import Converter
 from PIL import Image
-import comtypes.client
 import pikepdf
 from reportlab.pdfgen import canvas
 from PyPDF2 import PdfReader, PdfWriter
@@ -11,27 +9,13 @@ import qrcode
 import os
 import traceback
 
-TOKEN = "8001701759:AAEEwaUqg52Z1US3tmJWqshlZE4QJKSNGB4"
+TOKEN = "BOT_TOKENINGIZ"
 
-# BOT
 bot = telebot.TeleBot(TOKEN)
 
-# DATA
 user_images = {}
 user_pdfs = {}
 user_mode = {}
-
-# PDF COMPRESS
-def compress_pdf(input_pdf, output_pdf):
-
-    pdf = pikepdf.open(input_pdf)
-
-    pdf.save(
-        output_pdf,
-        compress_streams=True
-    )
-
-    pdf.close()
 
 # WATERMARK
 def add_watermark(input_pdf, output_pdf, text):
@@ -44,17 +28,17 @@ def add_watermark(input_pdf, output_pdf, text):
 
     c.setFillGray(0.5, 0.5)
 
-    c.drawString(150, 400, text)
+    c.drawString(120, 400, text)
 
     c.save()
 
     watermark = PdfReader(watermark_file)
 
-    reader_pdf = PdfReader(input_pdf)
+    reader = PdfReader(input_pdf)
 
     writer = PdfWriter()
 
-    for page in reader_pdf.pages:
+    for page in reader.pages:
 
         page.merge_page(watermark.pages[0])
 
@@ -72,16 +56,15 @@ def main_menu():
         resize_keyboard=True
     )
 
-    btn1 = types.KeyboardButton("📄 Word → PDF")
-    btn2 = types.KeyboardButton("🖼 Rasm → PDF")
-    btn3 = types.KeyboardButton("📚 PDF Merge")
-    btn4 = types.KeyboardButton("📑 PDF → Word")
-    btn5 = types.KeyboardButton("🛡 Watermark")
-    btn6 = types.KeyboardButton("🔳 QR Code")
+    btn1 = types.KeyboardButton("🖼 Rasm → PDF")
+    btn2 = types.KeyboardButton("📚 PDF Merge")
+    btn3 = types.KeyboardButton("📑 PDF → Word")
+    btn4 = types.KeyboardButton("🛡 Watermark")
+    btn5 = types.KeyboardButton("🔳 QR Code")
 
     markup.add(btn1, btn2)
     markup.add(btn3, btn4)
-    markup.add(btn5, btn6)
+    markup.add(btn5)
 
     return markup
 
@@ -91,7 +74,7 @@ def start(message):
 
     bot.send_message(
         message.chat.id,
-        "🔥 ULTIMATE PDF BOT 🔥\n\n"
+        "🔥 RAILWAY PDF BOT 🔥\n\n"
         "Kerakli bo‘limni tanlang 👇",
         reply_markup=main_menu()
     )
@@ -102,24 +85,14 @@ def buttons(message):
 
     chat_id = message.chat.id
 
-    # WORD → PDF
-    if message.text == "📄 Word → PDF":
-
-        user_mode[chat_id] = "word_to_pdf"
-
-        bot.send_message(
-            chat_id,
-            "📄 DOCX yoki PPT yuboring"
-        )
-
     # IMAGE → PDF
-    elif message.text == "🖼 Rasm → PDF":
+    if message.text == "🖼 Rasm → PDF":
 
         user_mode[chat_id] = "image_to_pdf"
 
         bot.send_message(
             chat_id,
-            "🖼 Bir yoki bir nechta rasm yuboring\n"
+            "🖼 Rasmlarni yuboring\n"
             "Keyin /makepdf bosing"
         )
 
@@ -154,23 +127,18 @@ def buttons(message):
             "🛡 PDF yuboring"
         )
 
-    # QR CODE
+    # QR
     elif message.text == "🔳 QR Code":
 
         user_mode[chat_id] = "qr"
 
         bot.send_message(
             chat_id,
-            "✍️ QR code uchun text yuboring"
+            "✍️ QR uchun text yuboring"
         )
 
     # QR CREATE
     elif user_mode.get(chat_id) == "qr":
-
-        bot.send_message(
-            chat_id,
-            "⏳ QR code yaratilmoqda..."
-        )
 
         qr = qrcode.make(message.text)
 
@@ -194,7 +162,7 @@ def buttons(message):
             "❌ Menudan foydalaning"
         )
 
-# DOCUMENTS
+# DOCUMENT
 @bot.message_handler(content_types=['document'])
 def handle_docs(message):
 
@@ -203,16 +171,6 @@ def handle_docs(message):
         chat_id = message.chat.id
 
         mode = user_mode.get(chat_id)
-
-        # SIZE LIMIT
-        if message.document.file_size > 200 * 1024 * 1024:
-
-            bot.send_message(
-                chat_id,
-                "❌ Fayl juda katta"
-            )
-
-            return
 
         file_info = bot.get_file(
             message.document.file_id
@@ -296,94 +254,11 @@ def handle_docs(message):
                 "/mergepdf bosing"
             )
 
-        # DOCX → PDF
-        elif file_name.endswith(".docx") and mode == "word_to_pdf":
-
-            bot.send_message(
-                chat_id,
-                "⏳ DOCX PDF qilinmoqda..."
-            )
-
-            pdf_name = file_name.replace(
-                ".docx",
-                ".pdf"
-            )
-
-            convert(file_name, pdf_name)
-
-            compressed_pdf = "compressed_" + pdf_name
-
-            compress_pdf(
-                pdf_name,
-                compressed_pdf
-            )
-
-            with open(compressed_pdf, "rb") as pdf:
-
-                bot.send_document(
-                    chat_id,
-                    pdf
-                )
-
-            os.remove(file_name)
-            os.remove(pdf_name)
-            os.remove(compressed_pdf)
-
-        # PPT/PPTX → PDF
-        elif (
-            file_name.endswith(".pptx")
-            or file_name.endswith(".ppt")
-        ) and mode == "word_to_pdf":
-
-            bot.send_message(
-                chat_id,
-                "⏳ PPT PDF qilinmoqda..."
-            )
-
-            pdf_name = file_name.rsplit(".", 1)[0] + ".pdf"
-
-            powerpoint = comtypes.client.CreateObject(
-                "Powerpoint.Application"
-            )
-
-            powerpoint.Visible = 1
-
-            presentation = powerpoint.Presentations.Open(
-                os.path.abspath(file_name)
-            )
-
-            presentation.SaveAs(
-                os.path.abspath(pdf_name),
-                32
-            )
-
-            presentation.Close()
-
-            powerpoint.Quit()
-
-            compressed_pdf = "compressed_" + pdf_name
-
-            compress_pdf(
-                pdf_name,
-                compressed_pdf
-            )
-
-            with open(compressed_pdf, "rb") as pdf:
-
-                bot.send_document(
-                    chat_id,
-                    pdf
-                )
-
-            os.remove(file_name)
-            os.remove(pdf_name)
-            os.remove(compressed_pdf)
-
         else:
 
             bot.send_message(
                 chat_id,
-                "❌ Noto‘g‘ri format yoki menu tanlanmagan"
+                "❌ Noto‘g‘ri format"
             )
 
             os.remove(file_name)
@@ -397,7 +272,7 @@ def handle_docs(message):
             f"❌ Xatolik:\n{str(e)}"
         )
 
-# SAVE IMAGES
+# IMAGE SAVE
 @bot.message_handler(content_types=['photo'])
 def save_image(message):
 
@@ -449,7 +324,7 @@ def save_image(message):
             f"❌ Xatolik:\n{str(e)}"
         )
 
-# IMAGE → PDF
+# MAKE PDF
 @bot.message_handler(commands=['makepdf'])
 def make_pdf(message):
 
@@ -513,7 +388,7 @@ def make_pdf(message):
             f"❌ Xatolik:\n{str(e)}"
         )
 
-# PDF MERGE
+# MERGE PDF
 @bot.message_handler(commands=['mergepdf'])
 def merge_pdf(message):
 
@@ -575,6 +450,6 @@ def merge_pdf(message):
             f"❌ Xatolik:\n{str(e)}"
         )
 
-print("🔥 ULTIMATE PDF BOT ISHLADI")
+print("🔥 RAILWAY PDF BOT ISHLADI")
 
 bot.infinity_polling()

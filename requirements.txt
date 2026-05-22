@@ -1,0 +1,7 @@
+pytelegrambotapi
+pillow
+pdf2docx
+pikepdf
+reportlab
+PyPDF2
+qrcode
