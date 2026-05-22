@@ -9,7 +9,7 @@ import qrcode
 import os
 import traceback
 
-TOKEN = "BOT_TOKENINGIZ"
+TOKEN = "8001701759:AAEEwaUqg52Z1US3tmJWqshlZE4QJKSNGB4"
 
 bot = telebot.TeleBot(TOKEN)
 
