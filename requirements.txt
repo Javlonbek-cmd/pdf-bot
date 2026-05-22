@@ -1,5 +1,5 @@
-pytelegrambotapi
-pillow
+pyTelegramBotAPI
+Pillow
 pdf2docx
 pikepdf
 reportlab
