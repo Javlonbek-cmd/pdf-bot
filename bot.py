@@ -79,9 +79,14 @@ def start(message):
         reply_markup=main_menu()
     )
 
-# BUTTONS
+# TEXT BUTTONS
 @bot.message_handler(content_types=['text'])
 def buttons(message):
+
+    # COMMANDLARNI O‘TKAZIB YUBORISH
+    if message.text.startswith("/"):
+
+        return
 
     chat_id = message.chat.id
 
@@ -384,7 +389,7 @@ def make_pdf(message):
         print(traceback.format_exc())
 
         bot.send_message(
-            chat_id,
+            message.chat.id,
             f"❌ Xatolik:\n{str(e)}"
         )
 
