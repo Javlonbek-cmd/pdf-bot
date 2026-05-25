@@ -1,6 +1,7 @@
 pyTelegramBotAPI
 Pillow
 pdf2docx
+docx2pdf
 pikepdf
 reportlab
 PyPDF2
