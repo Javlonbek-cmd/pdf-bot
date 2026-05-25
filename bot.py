@@ -1,532 +1,316 @@
 import telebot
 from telebot import types
-from pdf2docx import Converter
 from PIL import Image
-from reportlab.pdfgen import canvas
-from PyPDF2 import PdfReader, PdfWriter
-from docx2pdf import convert
+from PyPDF2 import PdfMerger
+from pdf2docx import Converter
 import qrcode
-import pikepdf
 import os
-import traceback
+import subprocess
 
 TOKEN = "8001701759:AAEEwaUqg52Z1US3tmJWqshlZE4QJKSNGB4"
 
 bot = telebot.TeleBot(TOKEN)
 
-user_images = {}
-user_pdfs = {}
 user_mode = {}
+user_files = {}
 
-# =========================
-# MENU
-# =========================
-
-def main_menu():
-
-    markup = types.ReplyKeyboardMarkup(
-        resize_keyboard=True,
-        row_width=2
-    )
-
-    btn1 = types.KeyboardButton("🖼 Rasm → PDF")
-    btn2 = types.KeyboardButton("📄 Word → PDF")
-    btn3 = types.KeyboardButton("📚 PDF Birlashtirish")
-    btn4 = types.KeyboardButton("📑 PDF → Word")
-    btn5 = types.KeyboardButton("🛡 Watermark")
-    btn6 = types.KeyboardButton("🔳 QR Code")
-
-    markup.add(btn1, btn2)
-    markup.add(btn3, btn4)
-    markup.add(btn5, btn6)
-
-    return markup
-
-# =========================
 # START
-# =========================
-
 @bot.message_handler(commands=['start'])
 def start(message):
 
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+    btn1 = types.KeyboardButton("🖼 Rasm → PDF")
+    btn2 = types.KeyboardButton("📄 Word → PDF")
+    btn3 = types.KeyboardButton("📑 PDF → Word")
+    btn4 = types.KeyboardButton("📚 PDF Birlashtirish")
+    btn5 = types.KeyboardButton("🛡 Watermark")
+    btn6 = types.KeyboardButton("◼ QR Code")
+
+    markup.row(btn1, btn2)
+    markup.row(btn3, btn4)
+    markup.row(btn5, btn6)
+
     bot.send_message(
         message.chat.id,
-        "🔥 SUPER PDF BOT 🔥\n\n"
-        "Kerakli bo‘limni tanlang 👇",
-        reply_markup=main_menu()
+        "🔥 SUPER PDF BOT 🔥\n\nKerakli bo‘limni tanlang 👇",
+        reply_markup=markup
     )
 
-# =========================
-# BUTTONS
-# =========================
-
-@bot.message_handler(func=lambda message: True)
+# BUTTONLAR
+@bot.message_handler(func=lambda m: True)
 def buttons(message):
 
-    chat_id = message.chat.id
+    text = message.text
 
-    # IMAGE PDF
-    if message.text == "🖼 Rasm → PDF":
+    if text == "🖼 Rasm → PDF":
+        user_mode[message.chat.id] = "img2pdf"
+        user_files[message.chat.id] = []
 
-        user_mode[chat_id] = "image_to_pdf"
-
-        markup = types.InlineKeyboardMarkup()
-
-        btn = types.InlineKeyboardButton(
-            "✅ PDF Tayyorlash",
-            callback_data="make_pdf"
-        )
-
-        markup.add(btn)
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.add(types.KeyboardButton("✅ PDF Tayyorlash"))
 
         bot.send_message(
-            chat_id,
-            "🖼 Rasmlarni yuboring",
+            message.chat.id,
+            "🖼 Rasmlarni yuboring\n\nTugatgach tugmani bosing 👇",
             reply_markup=markup
         )
 
-    # WORD PDF
-    elif message.text == "📄 Word → PDF":
-
-        user_mode[chat_id] = "word_to_pdf"
+    elif text == "📄 Word → PDF":
+        user_mode[message.chat.id] = "word2pdf"
 
         bot.send_message(
-            chat_id,
+            message.chat.id,
             "📄 DOCX fayl yuboring"
         )
 
-    # PDF MERGE
-    elif message.text == "📚 PDF Birlashtirish":
-
-        user_mode[chat_id] = "pdf_merge"
-
-        markup = types.InlineKeyboardMarkup()
-
-        btn = types.InlineKeyboardButton(
-            "✅ PDF Birlashtirish",
-            callback_data="merge_pdf"
-        )
-
-        markup.add(btn)
+    elif text == "📑 PDF → Word":
+        user_mode[message.chat.id] = "pdf2word"
 
         bot.send_message(
-            chat_id,
-            "📚 PDF fayllarni yuboring",
-            reply_markup=markup
-        )
-
-    # PDF WORD
-    elif message.text == "📑 PDF → Word":
-
-        user_mode[chat_id] = "pdf_to_word"
-
-        bot.send_message(
-            chat_id,
+            message.chat.id,
             "📑 PDF yuboring"
         )
 
-    # WATERMARK
-    elif message.text == "🛡 Watermark":
+    elif text == "📚 PDF Birlashtirish":
+        user_mode[message.chat.id] = "merge"
+        user_files[message.chat.id] = []
 
-        user_mode[chat_id] = "watermark"
-
-        bot.send_message(
-            chat_id,
-            "🛡 PDF yuboring"
-        )
-
-    # QR
-    elif message.text == "🔳 QR Code":
-
-        user_mode[chat_id] = "qr"
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.add(types.KeyboardButton("✅ PDF Birlashtirish"))
 
         bot.send_message(
-            chat_id,
-            "✍️ QR uchun text yuboring"
+            message.chat.id,
+            "📚 PDF fayllarni yuboring\n\nTugatgach tugmani bosing 👇",
+            reply_markup=markup
         )
 
-    # QR CREATE
-    elif user_mode.get(chat_id) == "qr":
+    elif text == "🛡 Watermark":
+        user_mode[message.chat.id] = "watermark"
 
         bot.send_message(
-            chat_id,
-            "⏳ QR tayyorlanmoqda..."
+            message.chat.id,
+            "🛡 Rasm yuboring"
         )
 
-        qr = qrcode.make(message.text)
+    elif text == "◼ QR Code":
+        user_mode[message.chat.id] = "qr"
 
-        qr_name = f"{chat_id}_qr.png"
+        bot.send_message(
+            message.chat.id,
+            "✍️ QR uchun matn yuboring"
+        )
 
-        qr.save(qr_name)
+    elif text == "✅ PDF Tayyorlash":
 
-        with open(qr_name, "rb") as qr_img:
+        files = user_files.get(message.chat.id, [])
 
-            bot.send_photo(
-                chat_id,
-                qr_img
-            )
-
-        os.remove(qr_name)
-
-# =========================
-# IMAGE SAVE
-# =========================
-
-@bot.message_handler(content_types=['photo'])
-def save_image(message):
-
-    try:
-
-        chat_id = message.chat.id
-
-        if user_mode.get(chat_id) != "image_to_pdf":
-
+        if not files:
+            bot.send_message(message.chat.id, "❌ Rasm topilmadi")
             return
 
-        if chat_id not in user_images:
-            user_images[chat_id] = []
+        pdf_name = f"{message.chat.id}.pdf"
 
-        file_info = bot.get_file(
-            message.photo[-1].file_id
+        images = []
+
+        for file in files:
+            img = Image.open(file).convert("RGB")
+            images.append(img)
+
+        images[0].save(
+            pdf_name,
+            save_all=True,
+            append_images=images[1:]
         )
 
-        downloaded_file = bot.download_file(
-            file_info.file_path
+        with open(pdf_name, "rb") as pdf:
+            bot.send_document(message.chat.id, pdf)
+
+        for file in files:
+            if os.path.exists(file):
+                os.remove(file)
+
+        if os.path.exists(pdf_name):
+            os.remove(pdf_name)
+
+    elif text == "✅ PDF Birlashtirish":
+
+        files = user_files.get(message.chat.id, [])
+
+        if not files:
+            bot.send_message(message.chat.id, "❌ PDF topilmadi")
+            return
+
+        merger = PdfMerger()
+
+        for pdf in files:
+            merger.append(pdf)
+
+        output = f"{message.chat.id}_merged.pdf"
+
+        merger.write(output)
+        merger.close()
+
+        with open(output, "rb") as f:
+            bot.send_document(message.chat.id, f)
+
+        for file in files:
+            if os.path.exists(file):
+                os.remove(file)
+
+        if os.path.exists(output):
+            os.remove(output)
+
+# QR CODE
+@bot.message_handler(func=lambda m: user_mode.get(m.chat.id) == "qr")
+def qr_make(message):
+
+    text = message.text
+
+    img = qrcode.make(text)
+
+    file_name = f"{message.chat.id}_qr.png"
+
+    img.save(file_name)
+
+    with open(file_name, "rb") as photo:
+        bot.send_photo(message.chat.id, photo)
+
+    os.remove(file_name)
+
+# PHOTO
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+
+    mode = user_mode.get(message.chat.id)
+
+    file_info = bot.get_file(message.photo[-1].file_id)
+
+    downloaded = bot.download_file(file_info.file_path)
+
+    file_name = f"{message.photo[-1].file_id}.jpg"
+
+    with open(file_name, "wb") as f:
+        f.write(downloaded)
+
+    # IMAGE TO PDF
+    if mode == "img2pdf":
+
+        if message.chat.id not in user_files:
+            user_files[message.chat.id] = []
+
+        user_files[message.chat.id].append(file_name)
+
+        bot.reply_to(
+            message,
+            f"✅ Rasm saqlandi: {len(user_files[message.chat.id])} ta"
         )
 
-        image_name = f"{chat_id}_{len(user_images[chat_id])}.jpg"
+    # WATERMARK
+    elif mode == "watermark":
 
-        with open(image_name, 'wb') as f:
-            f.write(downloaded_file)
+        img = Image.open(file_name)
 
-        user_images[chat_id].append(image_name)
+        watermark = Image.new("RGBA", img.size, (255, 255, 255, 0))
 
-        bot.send_message(
-            chat_id,
-            f"✅ Rasm saqlandi: {len(user_images[chat_id])} ta"
+        final = Image.alpha_composite(
+            img.convert("RGBA"),
+            watermark
         )
 
-    except Exception as e:
+        out = "watermark.png"
 
-        bot.send_message(
-            chat_id,
-            f"❌ Xatolik:\n{str(e)}"
-        )
+        final.save(out)
 
-# =========================
-# DOCUMENTS
-# =========================
+        bot.send_photo(message.chat.id, open(out, "rb"))
 
+        os.remove(out)
+        os.remove(file_name)
+
+# DOCUMENT
 @bot.message_handler(content_types=['document'])
 def handle_docs(message):
 
-    try:
+    mode = user_mode.get(message.chat.id)
 
-        chat_id = message.chat.id
+    file_info = bot.get_file(message.document.file_id)
 
-        mode = user_mode.get(chat_id)
+    downloaded = bot.download_file(file_info.file_path)
 
-        file_info = bot.get_file(
-            message.document.file_id
-        )
+    file_name = message.document.file_name
 
-        downloaded_file = bot.download_file(
-            file_info.file_path
-        )
+    with open(file_name, "wb") as f:
+        f.write(downloaded)
 
-        file_name = message.document.file_name
+    # WORD -> PDF
+    if mode == "word2pdf":
 
-        with open(file_name, 'wb') as new_file:
-            new_file.write(downloaded_file)
+        if not file_name.endswith(".docx"):
+            bot.reply_to(message, "❌ DOCX yuboring")
+            return
 
-        # ====================
-        # WORD → PDF
-        # ====================
+        bot.reply_to(message, "⏳ PDF tayyorlanmoqda...")
 
-        if (
-            file_name.endswith(".docx")
-            and mode == "word_to_pdf"
-        ):
+        output_pdf = file_name.replace(".docx", ".pdf")
 
-            bot.send_message(
-                chat_id,
-                "⏳ Word PDF qilinmoqda..."
-            )
+        try:
 
-            pdf_name = file_name.replace(
-                ".docx",
-                ".pdf"
-            )
+            subprocess.run([
+                "libreoffice",
+                "--headless",
+                "--convert-to",
+                "pdf",
+                file_name,
+                "--outdir",
+                "."
+            ])
 
-            convert(file_name, pdf_name)
+            with open(output_pdf, "rb") as pdf:
+                bot.send_document(message.chat.id, pdf)
 
-            with open(pdf_name, "rb") as pdf:
+        except Exception as e:
+            bot.reply_to(message, f"❌ Xatolik:\n{e}")
 
-                bot.send_document(
-                    chat_id,
-                    pdf
-                )
+    # PDF -> WORD
+    elif mode == "pdf2word":
 
-            os.remove(file_name)
-            os.remove(pdf_name)
+        if not file_name.endswith(".pdf"):
+            bot.reply_to(message, "❌ PDF yuboring")
+            return
 
-        # ====================
-        # PDF → WORD
-        # ====================
+        bot.reply_to(message, "⏳ Word tayyorlanmoqda...")
 
-        elif (
-            file_name.endswith(".pdf")
-            and mode == "pdf_to_word"
-        ):
+        word_name = file_name.replace(".pdf", ".docx")
 
-            bot.send_message(
-                chat_id,
-                "⏳ PDF Word qilinmoqda..."
-            )
-
-            docx_name = file_name.replace(
-                ".pdf",
-                ".docx"
-            )
+        try:
 
             cv = Converter(file_name)
-
-            cv.convert(docx_name)
-
+            cv.convert(word_name)
             cv.close()
 
-            with open(docx_name, "rb") as docx:
+            with open(word_name, "rb") as doc:
+                bot.send_document(message.chat.id, doc)
 
-                bot.send_document(
-                    chat_id,
-                    docx
-                )
+        except Exception as e:
+            bot.reply_to(message, f"❌ Xatolik:\n{e}")
 
-            os.remove(file_name)
-            os.remove(docx_name)
+    # PDF MERGE
+    elif mode == "merge":
 
-        # ====================
-        # PDF MERGE
-        # ====================
+        if not file_name.endswith(".pdf"):
+            bot.reply_to(message, "❌ PDF yuboring")
+            return
 
-        elif (
-            file_name.endswith(".pdf")
-            and mode == "pdf_merge"
-        ):
+        if message.chat.id not in user_files:
+            user_files[message.chat.id] = []
 
-            if chat_id not in user_pdfs:
-                user_pdfs[chat_id] = []
+        user_files[message.chat.id].append(file_name)
 
-            user_pdfs[chat_id].append(file_name)
-
-            bot.send_message(
-                chat_id,
-                f"✅ PDF saqlandi: {len(user_pdfs[chat_id])} ta"
-            )
-
-        # ====================
-        # WATERMARK
-        # ====================
-
-        elif (
-            file_name.endswith(".pdf")
-            and mode == "watermark"
-        ):
-
-            bot.send_message(
-                chat_id,
-                "⏳ Watermark qo‘shilmoqda..."
-            )
-
-            output_pdf = f"{chat_id}_watermark.pdf"
-
-            watermark_file = "watermark.pdf"
-
-            c = canvas.Canvas(watermark_file)
-
-            c.setFont("Helvetica", 40)
-
-            c.setFillGray(0.5, 0.5)
-
-            c.drawString(
-                120,
-                400,
-                "TATU PDF BOT"
-            )
-
-            c.save()
-
-            watermark = PdfReader(watermark_file)
-
-            reader = PdfReader(file_name)
-
-            writer = PdfWriter()
-
-            for page in reader.pages:
-
-                page.merge_page(
-                    watermark.pages[0]
-                )
-
-                writer.add_page(page)
-
-            with open(output_pdf, "wb") as f:
-
-                writer.write(f)
-
-            with open(output_pdf, "rb") as pdf:
-
-                bot.send_document(
-                    chat_id,
-                    pdf
-                )
-
-            os.remove(file_name)
-            os.remove(output_pdf)
-            os.remove(watermark_file)
-
-    except Exception as e:
-
-        print(traceback.format_exc())
-
-        bot.send_message(
-            chat_id,
-            f"❌ Xatolik:\n{str(e)}"
+        bot.reply_to(
+            message,
+            f"✅ PDF saqlandi: {len(user_files[message.chat.id])} ta"
         )
 
-# =========================
-# IMAGE PDF BUTTON
-# =========================
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_inline(call):
-
-    chat_id = call.message.chat.id
-
-    # ====================
-    # MAKE PDF
-    # ====================
-
-    if call.data == "make_pdf":
-
-        try:
-
-            if (
-                chat_id not in user_images
-                or len(user_images[chat_id]) == 0
-            ):
-
-                bot.answer_callback_query(
-                    call.id,
-                    "❌ Rasm yo‘q"
-                )
-
-                return
-
-            bot.send_message(
-                chat_id,
-                "⏳ PDF tayyorlanmoqda..."
-            )
-
-            image_list = []
-
-            for img in user_images[chat_id]:
-
-                image = Image.open(img).convert('RGB')
-
-                image_list.append(image)
-
-            pdf_name = f"{chat_id}_images.pdf"
-
-            image_list[0].save(
-                pdf_name,
-                save_all=True,
-                append_images=image_list[1:]
-            )
-
-            with open(pdf_name, "rb") as pdf:
-
-                bot.send_document(
-                    chat_id,
-                    pdf
-                )
-
-            for img in user_images[chat_id]:
-
-                os.remove(img)
-
-            os.remove(pdf_name)
-
-            user_images[chat_id] = []
-
-        except Exception as e:
-
-            bot.send_message(
-                chat_id,
-                f"❌ Xatolik:\n{str(e)}"
-            )
-
-    # ====================
-    # MERGE PDF
-    # ====================
-
-    elif call.data == "merge_pdf":
-
-        try:
-
-            if (
-                chat_id not in user_pdfs
-                or len(user_pdfs[chat_id]) == 0
-            ):
-
-                bot.answer_callback_query(
-                    call.id,
-                    "❌ PDF yo‘q"
-                )
-
-                return
-
-            bot.send_message(
-                chat_id,
-                "⏳ PDF birlashtirilmoqda..."
-            )
-
-            merger = pikepdf.Pdf.new()
-
-            for pdf_file in user_pdfs[chat_id]:
-
-                src = pikepdf.open(pdf_file)
-
-                merger.pages.extend(src.pages)
-
-            output_pdf = f"{chat_id}_merged.pdf"
-
-            merger.save(output_pdf)
-
-            merger.close()
-
-            with open(output_pdf, "rb") as pdf:
-
-                bot.send_document(
-                    chat_id,
-                    pdf
-                )
-
-            for pdf_file in user_pdfs[chat_id]:
-
-                os.remove(pdf_file)
-
-            os.remove(output_pdf)
-
-            user_pdfs[chat_id] = []
-
-        except Exception as e:
-
-            bot.send_message(
-                chat_id,
-                f"❌ Xatolik:\n{str(e)}"
-            )
-
-print("🔥 SUPER PDF BOT ISHLADI")
+print("🔥 BOT ISHLADI")
 
 bot.infinity_polling()
